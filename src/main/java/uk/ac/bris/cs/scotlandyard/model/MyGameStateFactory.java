@@ -59,10 +59,27 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			this.mrX = mrX;
 			this.detectives = detectives;
 
+			// TODO
+			// Need to implement the following checks/tests
+			// Check that all detectives have different locations
+			// MrX is indeed the black piece
+			// There are no duplicate game pieces
+			// Check theres only one mrX
+			// testSwappedMrXShouldThrow <- idk what this means
+			// check that mrX has double tickets
+			// Check that detectives have secret tickets
+			// Check for empty moves
+			// Check for empty graph
+			//
+
 			if (setup == null || remaining.isEmpty() || log.isEmpty() || mrX == null || detectives.isEmpty()){
 				throw new IllegalArgumentException("Arguments cant be null.");
 
 			}
+
+
+
+
 		}
 	}
 
