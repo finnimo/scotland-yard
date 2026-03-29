@@ -43,15 +43,24 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		private ImmutableSet<Move> moves;
 		private ImmutableSet<Piece> winner;
 
+		@Nonnull
 		@Override public GameSetup getSetup() {
 			return this.setup;
 		}
+
 		@Override  public ImmutableSet<Piece> getPlayers() { return null; }
 		@Override public GameState advance(Move move) {  return null;  }
 		@Override public Optional<Integer> getDetectiveLocation(Detective detective) {return null;}
 		@Override public Optional<TicketBoard> getPlayerTickets(Piece piece) {return null;}
-		@Override public ImmutableList<LogEntry> getMrXTravelLog(){return log;}
-		@Override public ImmutableSet<Piece> getWinner(){return this.winner;}
+
+		@Nonnull
+		@Override public ImmutableList<LogEntry> getMrXTravelLog(){
+			return log;
+		}
+		@Nonnull
+		@Override public ImmutableSet<Piece> getWinner(){
+			return this.winner;
+		}
 		@Override public ImmutableSet<Move> getAvailableMoves(){return null;}
 
 		// constructor
@@ -61,6 +70,13 @@ public final class MyGameStateFactory implements Factory<GameState> {
 				final ImmutableList<LogEntry> log,
 				final Player mrX,
 				final List<Player> detectives) {
+
+			this.setup = setup;
+			this.remaining = remaining;
+			this.log = log;
+			this.mrX = mrX;
+			this.detectives = detectives;
+
 			// check that parameters handed over aren't null
 			if (mrX == null || detectives == null || setup == null) {
 				throw new NullPointerException("Build has been passed null arguments.");
@@ -72,6 +88,10 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			// check empty moves throw
 			if(setup.moves.isEmpty()) throw new IllegalArgumentException("Moves is empty!");
 
+
+
+
+
 			// initializing variables
 			/*
 			ImmutableValueGraph<Integer, ImmutableSet<Transport>> standardGraph;
@@ -81,24 +101,18 @@ public final class MyGameStateFactory implements Factory<GameState> {
 				System.out.println("Standard graph not found. IO error.");
 			}
 			this.setup = new GameSetup(standardGraph, ImmutableList.of(true, false, true, true));
-			this.remaining = remaining;
-			this.log = log;
-			this.mrX = mrX;
-			this.detectives = detectives;
 			// this.winner = new ImmutableSet<>();*/
 
-			// test for duplicate mrXs
+
 
 
 			// TODO
-			// Need to implement the following checks/tests
-			// Check that all detectives have different locations
-			// MrX is indeed the black piece
-			// There are no duplicate game pieces
-			// Check theres only one mrX
-			// testSwappedMrXShouldThrow <- idk what this means
-			// check that mrX has double tickets
-			// Check that detectives have secret tickets
+			// failing tests (in GameStateCreationTest)
+			// testGetGraphMatch
+			// testWinningPlayerIsEmptyInitially
+			// testTwoPlayerWorks
+			// testGetPlayerTicketsMatchesSupplied
+			//
 
 
 
