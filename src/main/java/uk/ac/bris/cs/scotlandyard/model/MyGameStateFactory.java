@@ -73,6 +73,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 		@Override public Optional<TicketBoard> getPlayerTickets(Piece piece) {
 			Player p = pieceToPlayer(piece);
+			if (p == null) {return Optional.empty();}
 			ImmutableMap<Ticket, Integer> tickets = pieceToPlayer(piece).tickets();
 			Optional<TicketBoard> ticketBoard = Optional.of(new TicketBoard() {
 				@Override public int getCount(Ticket ticket) {
@@ -148,48 +149,35 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 			System.out.println("Null and empty checks passed");
 
-			// checking if graph and moves = standard graph and moves
-
-			GameSetup standardSetup;
-			ImmutableValueGraph<Integer, ImmutableSet<Transport>> standardGraph;
-			try {
-				standardGraph = standardGraph();
-				standardSetup = new GameSetup(standardGraph, STANDARD24MOVES);
-				//this.setup = new GameSetup(standardGraph, ImmutableList.of(true, false, true, true));
-				if (!this.setup.equals(standardSetup)) {
-					throw new IllegalArgumentException("Setup does not contain either standard moves or standard graph.");
-				} else {
-					System.out.println("Given graphs and moves are standard.");
-				}
-
-			} catch (IOException e) {
-				System.out.println("Standard graph not found. IO error.");
-			}
-
-			// check detectives dont have double tickets
+			// check no detective is null
+			// check detectives dont have double or secret tickets
 			// check no detectives are mrX
 			// auto checks more than 1 mrX, as if theres one in detectives list the program throws anyway
 			for (Player d : detectives) {
 				if (d.isDetective()) {
 					if (d == null) throw new NullPointerException("Detectives list contains a null.");
-					if (d.has(Ticket.DOUBLE)) throw new IllegalArgumentException("Detective has DOUBLE ticket");
+					if (d.has(Ticket.DOUBLE) || d.has(Ticket.SECRET)) throw new IllegalArgumentException("Detective has DOUBLE ticket");
 					else if (d.piece().webColour() == "#000") throw new IllegalArgumentException("Detective cannot be a black piece");
 				}
 				else throw new IllegalArgumentException("Mr X is in the detectives list.");
 			}
-			// check for mrX
+			// check for mrX existing
 			if (mrX.piece().webColour() != "#000") throw new IllegalArgumentException("There is no Mr X piece.");
 
 
 			// check no detective locations overlap
-			/*
 			for (int i = 0; i < size(detectives); i++) {
-				for (int j = i-1; j < size(detectives); j++) {
-					if (detectives.get(i).location() != detectives.get(j).location()) {
+				for (int j = i+1; j < size(detectives); j++) {
+					if (detectives.get(i).location() == detectives.get(j).location()) {
 						throw new IllegalArgumentException("2 Detectives are in the same location.");
 					}
 				}
-			}*/
+			}
+
+			// check empty graph
+			if (setup.graph.nodes().size() == 0) {
+				throw new IllegalArgumentException("Graph is empty.");
+			}
 
 			// check winner is initially empty
 
@@ -207,11 +195,11 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			* swapped mr x throw								DONE
 			* two plauer works									PERCHANCE
 			* location overlap between detectives throws		DONE
-			* get player tickets match supplied
+			* get player tickets match supplied					DONE
 			* get players match supplied						DONE
-			* getplayertickets for non existent player is empty
+			* getplayertickets for non existent player is empty	...
 			* null mr x throws									DONE
-			* get move matches supplied
+			* get move matches supplied							DONE
 			* get player location for nonexistent player empty	DONE
 			* six player works									PERCHANCE
 			* detectives have secret ticket throws
