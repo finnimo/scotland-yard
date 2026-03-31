@@ -4,9 +4,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 import com.google.common.graph.ImmutableValueGraph;
+import com.google.common.io.Resources;
 import jakarta.annotation.Nonnull;
 
 import uk.ac.bris.cs.scotlandyard.model.Board.GameState;
@@ -17,8 +19,7 @@ import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Factory;
 
 // imported graph to check against default graph
 import static io.atlassian.fugue.Iterables.size;
-import static uk.ac.bris.cs.scotlandyard.model.ScotlandYard.readGraph;
-import static uk.ac.bris.cs.scotlandyard.model.ScotlandYard.standardGraph;
+import static uk.ac.bris.cs.scotlandyard.model.ScotlandYard.*;
 
 /**
  * cw-model
@@ -76,44 +77,84 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			this.log = log;
 			this.mrX = mrX;
 			this.detectives = detectives;
+			System.out.println("Before null tests");
 
 			// check that parameters handed over aren't null
+
 			if (mrX == null || detectives == null || setup == null) {
 				throw new NullPointerException("Build has been passed null arguments.");
 			}
 			// checks if any list structures handed over are empty
-			else if (remaining.isEmpty() || log.isEmpty() || detectives.isEmpty()){
+			else if (detectives.isEmpty()){
 				throw new IllegalArgumentException("Build has been passed empty arguments.");
 			}
 			// check empty moves throw
 			if(setup.moves.isEmpty()) throw new IllegalArgumentException("Moves is empty!");
 
 
+			System.out.println("Null and empty checks passed");
 
+			// checking if graph and moves = standard graph and moves
 
-
-			// initializing variables
-			/*
+			GameSetup standardSetup;
 			ImmutableValueGraph<Integer, ImmutableSet<Transport>> standardGraph;
 			try {
 				standardGraph = standardGraph();
+				standardSetup = new GameSetup(standardGraph, STANDARD24MOVES);
+				//this.setup = new GameSetup(standardGraph, ImmutableList.of(true, false, true, true));
+				if (!this.setup.equals(standardSetup)) {
+					throw new IllegalArgumentException("Setup does not contain either standard moves or standard graph.");
+				} else {
+					System.out.println("Given graphs and moves are standard.");
+				}
+
 			} catch (IOException e) {
 				System.out.println("Standard graph not found. IO error.");
 			}
-			this.setup = new GameSetup(standardGraph, ImmutableList.of(true, false, true, true));
-			// this.winner = new ImmutableSet<>();*/
+
+			// check detectives dont have double tickets
+			// check mrX exists
+			// check mrX is black, check no players are black
+			for (Player d : detectives) {
+				if (d.isDetective() && d.has(Ticket.DOUBLE)) throw new IllegalArgumentException("Detective has DOUBLE ticket");
+			}
+			boolean existsMrX = false;
+			for (Player d : detectives) {
+				if (d.isDetective()) {
+					if (d.has(Ticket.DOUBLE)) throw new IllegalArgumentException("Detective has DOUBLE ticket");
+					else if (d.piece().webColour() == "#000") throw new IllegalArgumentException("Detective cannot be a black piece");
+				}
+
+				else if (d.piece().webColour() != "#000") throw new IllegalArgumentException("Mr X must be a black piece");
+			}
+			if (!existsMrX) throw new IllegalArgumentException("There is no mrX.");
 
 
 
 
-			// TODO
-			// failing tests (in GameStateCreationTest)
-			// testGetGraphMatch
-			// testWinningPlayerIsEmptyInitially
-			// testTwoPlayerWorks
-			// testGetPlayerTicketsMatchesSupplied
-			//
-
+			/* TODO: TESTS
+			* empty moves throw 								DONE
+			* get graph matches supplied						...
+			* null detectives should throw						DONE
+			* detective has double should throw					DONE
+			* winning plauers empty initially
+			* empty graph throws								DONE, Because it won't match standardgraph()
+			* no mr x throws									DONE
+			* swapped mr x throw								DONE
+			* two plauer works
+			* location overlap between detectives throws
+			* get player tickets match supplied
+			* get players match supplied
+			* getplayer tickets for non existent player is empty
+			* null mr x throws
+			* get move matches supplied
+			* get player location for nonexistent player empty	IN PROGRESS ...
+			* six player works
+			* detectives have secretticket throws
+			* get detective location matches supplied
+			* null detectives throw
+			* more than 1 mr x throws
+			* */
 
 
 		}
