@@ -61,7 +61,13 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			}
 			return ImmutableSet.copyOf(players);
 		}
-		@Override public GameState advance(Move move) {  return null;  }
+
+		@Override public GameState advance(Move move) {
+			if(!moves.contains(move)) throw new IllegalArgumentException("Illegal move: "+move);
+
+			return null;
+		}
+
 		@Override public Optional<Integer> getDetectiveLocation(Detective detective) {
 			Player detectiveAsPlayer = pieceToPlayer(detective);
 			if (detectiveAsPlayer != null) {
@@ -104,7 +110,11 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		@Override public ImmutableSet<Piece> getWinner(){
 			return null;
 		}
-		@Override public ImmutableSet<Move> getAvailableMoves(){return null;}
+		@Override public ImmutableSet<Move> getAvailableMoves(){
+			return this.moves;
+		}
+
+
 
 		private Player pieceToPlayer(Piece piece) {
 			if (piece.webColour() == "#000") { return mrX; }
@@ -182,33 +192,130 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			// check winner is initially empty
 
 
+			// filling in the moves set
+			Set<Move> allMoves = new HashSet<>();
+			for (Piece piece : remaining) {
+				Player player = pieceToPlayer(piece);
+				Set<SingleMove> singleMove = makeSingleMoves(setup, detectives, player, player.location());
+				allMoves.addAll(singleMove);
+
+				if (player.isMrX()) {
+					allMoves.addAll(makeDoubleMoves(setup, detectives, player, player.location(), log));
+				}
+			}
+
+			//
+			this.moves = ImmutableSet.copyOf(allMoves);
+
+
 
 
 			/* TODO: TESTS
-			* empty moves throw 								DONE
-			* get graph matches supplied						...
-			* null detectives should throw						DONE
-			* detective has double should throw					DONE
-			* winning plauers empty initially					...
-			* empty graph throws								DONE, Because it won't match standardgraph()
-			* no mr x throws									DONE
-			* swapped mr x throw								DONE
-			* two plauer works									PERCHANCE
-			* location overlap between detectives throws		DONE
-			* get player tickets match supplied					DONE
-			* get players match supplied						DONE
-			* getplayertickets for non existent player is empty	...
-			* null mr x throws									DONE
-			* get move matches supplied							DONE
-			* get player location for nonexistent player empty	DONE
-			* six player works									PERCHANCE
-			* detectives have secret ticket throws
-			* get detective location matches supplied			DONE
-			* null detectives throw								DONE
-			* more than 1 mr x throws							DONE
-			* */
+			 * empty moves throw 								DONE
+			 * get graph matches supplied						...
+			 * null detectives should throw						DONE
+			 * detective has double should throw					DONE
+			 * winning plauers empty initially					...
+			 * empty graph throws								DONE, Because it won't match standardgraph()
+			 * no mr x throws									DONE
+			 * swapped mr x throw								DONE
+			 * two plauer works									PERCHANCE
+			 * location overlap between detectives throws		DONE
+			 * get player tickets match supplied					DONE
+			 * get players match supplied						DONE
+			 * getplayertickets for non existent player is empty	...
+			 * null mr x throws									DONE
+			 * get move matches supplied							DONE
+			 * get player location for nonexistent player empty	DONE
+			 * six player works									PERCHANCE
+			 * detectives have secret ticket throws
+			 * get detective location matches supplied			DONE
+			 * null detectives throw								DONE
+			 * more than 1 mr x throws							DONE
+			 * */
 
 
+		}
+
+		private static Set<SingleMove> makeSingleMoves(GameSetup setup, List<Player> detectives, Player player, int source){
+			HashSet<SingleMove> allMoves = new HashSet<>();
+
+			for(int destination : setup.graph.adjacentNodes(source)) {
+				// TODO find out if destination is occupied by a detective
+				//  if the location is occupied, don't add to the collection of moves to return
+
+				boolean occupied = false;
+				for (Player detective : detectives){
+					if (detective.location() == destination){
+						occupied = true;
+						break;
+					}
+				}
+				if (occupied){
+					continue;
+				}
+
+
+				for(Transport t : setup.graph.edgeValueOrDefault(source, destination, ImmutableSet.of()) ) {
+					Ticket ticket = t.requiredTicket();
+					if (player.has(ticket)){
+						allMoves.add(new SingleMove(player.piece(), source, ticket, destination));
+					}
+					// TODO find out if the player has the required tickets
+					//  if it does, construct a SingleMove and add it the collection of moves to return
+				}
+
+				// TODO consider the rules of secret moves here
+				//  add moves to the destination via a secret ticket if there are any left with the player
+
+				if (player.isMrX() && player.has(Ticket.SECRET)){
+					allMoves.add(new SingleMove(player.piece(), source, Ticket.SECRET, destination));
+				}
+			}
+
+			// TODO return the collection of moves
+			return allMoves;
+		}
+
+		private static Set<DoubleMove> makeDoubleMoves(GameSetup setup, List<Player> detectives, Player player, int source, ImmutableList<LogEntry> log){
+			Set<DoubleMove> allDoubleMoves = new HashSet<>();
+
+			if (!player.has(Ticket.DOUBLE)) return allDoubleMoves;
+			if (setup.moves.size() - log.size() < 2) return allDoubleMoves;
+
+			// first need to get all available single moves. we're gonna be doing two single moves in a row and we already have the logic for it
+			Set<SingleMove> firstMoves = makeSingleMoves(setup, detectives, player, source);
+
+			for (SingleMove first : firstMoves){
+				// now we're gonna loop through every possibility here! to find our choices for the second move
+				// we need a new hashset for this. itll be "our possible locations for the second move"
+				// then we just check if its valid
+				Set<SingleMove> secondMoves = makeSingleMoves(setup, detectives, player, first.destination);
+
+				for (SingleMove second : secondMoves){
+					// now we're gonna check if mrX actually has the tickets for this.
+					// we iterate over the first move, check if we can do that move, then iterate over EVERY possible second move you can make from that first move and check the tickets then
+					// if the two moves are different, eg taxi then bus we dont need to worry since we already checked hasTicket in makesinglemoves
+					// our issue is if the two moves are the SAME we need to check if he has enough tickets
+
+					boolean validTickets;
+
+					if (first.ticket == second.ticket){
+						validTickets = player.hasAtLeast(first.ticket, 2);
+					}
+					else{
+						// different tickets
+						validTickets = true;
+					}
+
+					if (validTickets){
+						allDoubleMoves.add(new DoubleMove(player.piece(), source, first.ticket, first.destination, second.ticket, second.destination));
+					}
+
+				}
+
+			}
+			return allDoubleMoves;
 		}
 	}
 
