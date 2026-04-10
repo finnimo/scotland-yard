@@ -67,7 +67,6 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			Player newPlayer;
 			ArrayList<Player> newDetectives = new ArrayList<>(detectives);
 			List<LogEntry> newLog = new ArrayList<>(log);
-			//ArrayList<Piece> newWinners = new ArrayList<>(winners);
 
 			if(!moves.contains(move)) throw new IllegalArgumentException("Illegal move: "+move);
 
@@ -86,20 +85,10 @@ public final class MyGameStateFactory implements Factory<GameState> {
 					else { newLog.add(LogEntry.hidden(firstTicket)); }
 					newPlayer = new Player(player.piece(), player.tickets(), finalDestList.get(0));
 				} else {
-					// log first ticket
-					if (setup.moves.get(size(log))) {
-						newLog.add(LogEntry.reveal(firstTicket, finalDestList.get(0)));
-					} else {
-						newLog.add(LogEntry.hidden(firstTicket));
-					}
-					// log second ticket
-					if (setup.moves.get(size(log)+1)) {
-						newLog.add(LogEntry.reveal(secondTicket, finalDestList.get(1)));
-					} else {
-						newLog.add(LogEntry.hidden(secondTicket));
-					}
+					logDouble(firstTicket, secondTicket, finalDestList, newLog);
 					newPlayer = new Player(player.piece(), player.tickets(), finalDestList.get(1));
 				}
+
 				return new MyGameState(setup, updateRemaining(player), ImmutableList.copyOf(newLog), newPlayer, detectives, winners);
 
 			} else {
@@ -107,19 +96,25 @@ public final class MyGameStateFactory implements Factory<GameState> {
 				player = player.use(firstTicket);
 			} // normal player skips mrX process and uses ticket
 			newPlayer = new Player(player.piece(), player.tickets(), finalDestList.get(0));
-			/*
-			if (newPlayer.location() == mrX.location()) {
-				// Detectives win!
-				for (Player d : newDetectives) {
-					if (!newWinners.contains(d.piece())) {
-						newWinners.add(d.piece());
-					}
-				}
-			}*/
 			newDetectives.add(newPlayer);
 			return new MyGameState(setup, updateRemaining(player), log, mrX.give(move.tickets()), newDetectives, winners);
 		}
 
+		List<LogEntry> logDouble(Ticket firstTicket, Ticket secondTicket, ImmutableList<Integer> finalDestList, List<LogEntry> newLog) {
+			// log first ticket
+			if (setup.moves.get(size(log))) {
+				newLog.add(LogEntry.reveal(firstTicket, finalDestList.get(0)));
+			} else {
+				newLog.add(LogEntry.hidden(firstTicket));
+			}
+			// log second ticket
+			if (setup.moves.get(size(log)+1)) {
+				newLog.add(LogEntry.reveal(secondTicket, finalDestList.get(1)));
+			} else {
+				newLog.add(LogEntry.hidden(secondTicket));
+			}
+			return newLog;
+		}
 		ImmutableSet<Piece> updateRemaining(Player player) {
 			HashSet<Piece> newRemaining = new HashSet<>(remaining);
 			newRemaining.remove(player.piece());
@@ -255,19 +250,11 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 
 			// filling in the moves set
-			Set<Move> allMoves = new HashSet<>();
-			for (Piece piece : remaining) {
-				Player player = pieceToPlayer(piece);
-				Set<SingleMove> pieceMovesAllowed = makeSingleMoves(setup, detectives, player, player.location());
-				allMoves.addAll(pieceMovesAllowed);
-
-				if (player.isMrX()) {
-					allMoves.addAll(makeDoubleMoves(setup, detectives, player, player.location(), log));
-				}
-			}
+			Set<Move> allMoves = remainingMoves(this.remaining, this.setup);
 			this.moves = ImmutableSet.copyOf(allMoves);
 
 			// test for winners
+			/*
 			winners = new ArrayList<>();
 			switch(winnerState()) {
 				case DETECTIVES:
@@ -280,15 +267,13 @@ public final class MyGameStateFactory implements Factory<GameState> {
 					break;
 				case NONE:
 					break;
-			}
+			}*/
 		}
-		enum Winner {DETECTIVES, MRX, NONE}
-		Winner winnerState() {
+		/*enum Winner {DETECTIVES, MRX, NONE}
+		Winner winnerState(Player player, ImmutableSet<Piece> newRemaining) {
 			// check if detective has finished a move on the same station as mrX
-			for (Player d : this.detectives) {
-				if (d.location() == mrX.location()) {
-					return Winner.DETECTIVES;
-				}
+			if (player.location() == mrX.location()) {
+				return Winner.DETECTIVES;
 			}
 			// check mrX cant move
 			if (remaining.contains(mrX.piece()) && moves.isEmpty()) { return Winner.DETECTIVES; }
@@ -300,9 +285,21 @@ public final class MyGameStateFactory implements Factory<GameState> {
 				if (remaining.isEmpty() && size(log) == size(setup.moves)) { return Winner.MRX; }
 			}
 			return Winner.NONE;
+		}*/
+
+		Set<Move> remainingMoves(ImmutableSet<Piece> remaining, GameSetup setup) {
+			Set<Move> allMoves = new HashSet<>();
+			for (Piece piece : remaining) {
+				Player player = pieceToPlayer(piece);
+				Set<SingleMove> pieceMovesAllowed = makeSingleMoves(setup, detectives, player, player.location());
+				allMoves.addAll(pieceMovesAllowed);
+
+				if (player.isMrX()) {
+					allMoves.addAll(makeDoubleMoves(setup, detectives, player, player.location(), log));
+				}
+			}
+			return allMoves;
 		}
-
-
 		private static Set<SingleMove> makeSingleMoves(GameSetup setup, List<Player> detectives, Player player, int source){
 			HashSet<SingleMove> allMoves = new HashSet<>();
 
@@ -317,7 +314,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			for(int destination : setup.graph.adjacentNodes(source)) {
 				for (Player detective : detectives){
 					if (detective.location() == destination){
-						continue;
+						break;
 					} else {
 						for(Transport t : setup.graph.edgeValueOrDefault(source, destination, ImmutableSet.of()) ) {
 							Ticket ticket = t.requiredTicket();
@@ -339,9 +336,8 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 		private static Set<DoubleMove> makeDoubleMoves(GameSetup setup, List<Player> detectives, Player player, int source, ImmutableList<LogEntry> log){
 			Set<DoubleMove> allDoubleMoves = new HashSet<>();
-
 			// if player has no double, return
-			// double takes up 2 slots, if log size is <2 from max, cant do this
+			// double takes up 2 slots, if log size is <2 from max
 			if (!player.has(Ticket.DOUBLE)) return allDoubleMoves;
 			if (setup.moves.size() - log.size() < 2) return allDoubleMoves;
 
@@ -350,16 +346,12 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 			for (SingleMove firstMove : firstMoves){
 				// now we're gonna loop through every possibility here! to find our choices for the second move
-				// we need a new hashset for this. itll be "our possible locations for the second move"
-				// then we just check if its valid
 				Set<SingleMove> secondMoves = makeSingleMoves(setup, detectives, player, firstMove.destination);
-
 				for (SingleMove second : secondMoves){
 					// now we're gonna check if mrX actually has the tickets for this.
 					// we iterate over the first move, check if we can do that move, then iterate over EVERY possible second move you can make from that first move and check the tickets then
 					// if the two moves are different, eg taxi then bus we dont need to worry since we already checked hasTicket in makesinglemoves
 					// our issue is if the two moves are the SAME we need to check if he has enough tickets
-
 					boolean validTickets;
 
 					if (firstMove.ticket == second.ticket){
