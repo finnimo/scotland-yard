@@ -247,11 +247,16 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 			// check for winner
 
+			this.moves = ImmutableSet.copyOf(remainingMoves(this.remaining, this.setup));
+
+			this.winners = new ArrayList<>(calculateWinner());
+			System.out.println("CURRENT WINNERS: " + this.winners);
+			System.out.println(mrX.piece());
 
 
-			// filling in the moves set
-			Set<Move> allMoves = remainingMoves(this.remaining, this.setup);
-			this.moves = ImmutableSet.copyOf(allMoves);
+			if (!this.winners.isEmpty()) {
+				this.moves = ImmutableSet.of();
+			}
 
 			// test for winners
 			/*
@@ -384,6 +389,39 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			public ImmutableList<Integer> visit(DoubleMove move) {
 				return ImmutableList.of(move.destination1, move.destination2);
 			}
+		}
+
+		private ImmutableSet<Piece> calculateWinner(){
+			// is mrX caught?
+
+			for (Player detective: detectives){
+				if (detective.location() == mrX.location()){
+					return getPieces();
+				}
+			}
+
+			if (remaining.contains(mrX.piece()) && moves.isEmpty()){
+				return getPieces();
+			}
+
+			if (!remaining.contains(mrX.piece()) && moves.isEmpty()) {
+				return ImmutableSet.of(mrX.piece());
+
+			}
+
+			if (log.size() == setup.moves.size() && remaining.contains(mrX.piece())) {
+				return ImmutableSet.of(mrX.piece());
+			}
+
+			return ImmutableSet.of();
+		}
+
+		private ImmutableSet<Piece> getPieces(){
+			Set<Piece> pieces = new HashSet<>();
+			for (Player detective: detectives){
+				pieces.add(detective.piece());
+			}
+			return ImmutableSet.copyOf(pieces);
 		}
 
 	}
