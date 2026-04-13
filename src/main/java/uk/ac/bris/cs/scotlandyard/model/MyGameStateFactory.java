@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 import com.google.common.graph.ImmutableValueGraph;
-import com.google.common.io.Resources;
 import jakarta.annotation.Nonnull;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -34,9 +33,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			GameSetup setup,
 			Player mrX,
 			ImmutableList<Player> detectives) {
-		// TODO
 		return new MyGameState(setup, ImmutableSet.of(MrX.MRX), ImmutableList.of(), mrX, detectives, new ArrayList<>());
-
 	}
 	private final class MyGameState implements GameState {
 		private GameSetup setup;
@@ -53,7 +50,6 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		}
 
 		@Override  public ImmutableSet<Piece> getPlayers() {
-			System.out.println("creating ...");
 			Set<Piece> players = new HashSet<>();
 			players.add(mrX.piece());
 			for (Player d : detectives) {
@@ -115,6 +111,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			}
 			return newLog;
 		}
+
 		ImmutableSet<Piece> updateRemaining(Player player) {
 			HashSet<Piece> newRemaining = new HashSet<>(remaining);
 			newRemaining.remove(player.piece());
@@ -146,20 +143,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			ImmutableMap<Ticket, Integer> tickets = pieceToPlayer(piece).tickets();
 			Optional<TicketBoard> ticketBoard = Optional.of(new TicketBoard() {
 				@Override public int getCount(Ticket ticket) {
-					switch(ticket) {
-						case TAXI:
-							return tickets.get(Ticket.TAXI);
-						case BUS:
-							return tickets.get(Ticket.BUS);
-						case UNDERGROUND:
-							return tickets.get(Ticket.UNDERGROUND);
-						case DOUBLE:
-							return tickets.get(Ticket.DOUBLE);
-						case SECRET:
-							return tickets.get(Ticket.SECRET);
-						default:
-							throw new IllegalArgumentException("Ticket type invalid.");
-					}
+					return tickets.get(ticket);
 				}
 			});
 			return ticketBoard;
@@ -169,11 +153,13 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		@Override public ImmutableList<LogEntry> getMrXTravelLog(){
 			return log;
 		}
+
 		@Nonnull
 		@Override public ImmutableSet<Piece> getWinner(){
 			if (winners ==  null) { return ImmutableSet.of(); }
 			return ImmutableSet.copyOf(this.winners);
 		}
+
 		@Override public ImmutableSet<Move> getAvailableMoves(){
 			return this.moves;
 		}
@@ -251,11 +237,12 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 			this.winners = new ArrayList<>(calculateWinner());
 			System.out.println("CURRENT WINNERS: " + this.winners);
+			System.out.println(mrX.piece());
+
 
 			if (!this.winners.isEmpty()) {
 				this.moves = ImmutableSet.of();
 			}
-
 		}
 
 
@@ -276,12 +263,12 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			HashSet<SingleMove> allMoves = new HashSet<>();
 
 			/* for every node adjacent to current player,
-			* 	check if node occupied. if so, move onto next node.
-			* now, for nodes that can be traveled to:
-			* 	find transport from source to dest node
-			* 		if player has, make a move, else do nothing
-			* lastly, for every adjacent node, mrX will have access to that if they have ticket
-			* */
+			 * 	check if node occupied. if so, move onto next node.
+			 * now, for nodes that can be traveled to:
+			 * 	find transport from source to dest node
+			 * 		if player has, make a move, else do nothing
+			 * lastly, for every adjacent node, mrX will have access to that if they have ticket
+			 * */
 
 			for(int destination : setup.graph.adjacentNodes(source)) {
 				for (Player detective : detectives){
@@ -359,15 +346,22 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		}
 
 		private ImmutableSet<Piece> calculateWinner(){
-			// is mrX caught?
-			// TODO: if logbook is full and detectives dont have any moves to catch mrX
 
-			if (!remaining.contains(mrX.piece()) && moves.isEmpty()) { // if detectives can no longer move
-				System.out.println("detectives has no moves left");
-				return ImmutableSet.of(mrX.piece());
+			// check if detectives have one
+			// 1. if detectives finish move on mrX
+			// 2. there's no places for mrX to travel to
+			for (Player detective: detectives){
+				if (detective.location() == mrX.location()){
+					return getPieces();
+				}
 			}
 
+			if (remaining.contains(mrX.piece()) && moves.isEmpty()){
+				return getPieces();
+			}
 
+			// detectives run out of tickets
+			// mr x fills a log and detectives fail to catch him with final moves
 			if (remaining.contains(mrX.piece())) { // detectives have no tickets left after mrX has moved
 				System.out.println("mr x turn, checking for tickets for detectives");
 				boolean noDetectiveTicketsLeft = true;
@@ -379,34 +373,16 @@ public final class MyGameStateFactory implements Factory<GameState> {
 				if (noDetectiveTicketsLeft) { return ImmutableSet.of(mrX.piece()); }
 			}
 
-			if (log.size() == setup.moves.size() && !remaining.contains(mrX.piece())) { //if mr x has filled up his log
-				System.out.println("mrX log filled but its detectives turn");
-				boolean mrXCatchable = false;
-				for (Move d : this.moves) {
-					ImmutableList<Integer> finalDestList = d.accept(new MyGameState.destinationVisitor());
-					for (Integer i : finalDestList) {
-						if (i == mrX.location()) {
-							mrXCatchable = true;
-						}
-					}
-				} if (!mrXCatchable) { return ImmutableSet.of(mrX.piece()); }
+			// check detectives still have moves left
+			if (!remaining.contains(mrX.piece()) && moves.isEmpty()) {
+				return ImmutableSet.of(mrX.piece());
 			}
 
-			for (Player detective: detectives){ // if a detective is in mrX's location
-				if (detective.location() == mrX.location()){
-					System.out.println("detective caught mrX");
-					return getPieces();
-				}
-			}
-
-			if (remaining.contains(mrX.piece()) && moves.isEmpty()) { // if mrX can no longer move
-
-				System.out.println("mrX has no moves left");
-				return getPieces();
+			if (log.size() == setup.moves.size() && remaining.contains(mrX.piece())) {
+				return ImmutableSet.of(mrX.piece());
 			}
 
 			return ImmutableSet.of();
-
 		}
 
 		private ImmutableSet<Piece> getPieces(){
