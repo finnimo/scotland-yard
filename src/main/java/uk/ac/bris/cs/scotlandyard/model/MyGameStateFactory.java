@@ -4,18 +4,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-import com.google.common.graph.ImmutableValueGraph;
 import jakarta.annotation.Nonnull;
 
-import org.checkerframework.checker.nullness.qual.NonNull;
 import uk.ac.bris.cs.scotlandyard.model.Board.GameState;
 import uk.ac.bris.cs.scotlandyard.model.Move.*;
 import uk.ac.bris.cs.scotlandyard.model.Piece.*;
-import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.*;
 import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Factory;
 import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Transport;
 
@@ -280,22 +275,20 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			 * */
 
 			for(int destination : setup.graph.adjacentNodes(source)) {
+				boolean nodeOccupied = false;
 				for (Player detective : detectives){
-					if (detective.location() == destination){
-						break;
-					} else {
-						for(Transport t : setup.graph.edgeValueOrDefault(source, destination, ImmutableSet.of()) ) {
-							Ticket ticket = t.requiredTicket();
-							if (player.has(ticket)){
-								allMoves.add(new SingleMove(player.piece(), source, ticket, destination));
-							}
-						}
-						// add secret move
-						if (player.isMrX() && player.has(Ticket.SECRET)){
-							allMoves.add(new SingleMove(player.piece(), source, Ticket.SECRET, destination));
-						}
-
+					if (detective.location() == destination){ nodeOccupied = true; }
+				}
+				if (nodeOccupied) { continue; }
+				for(Transport t : setup.graph.edgeValueOrDefault(source, destination, ImmutableSet.of()) ) {
+					Ticket ticket = t.requiredTicket();
+					if (player.has(ticket)){
+						allMoves.add(new SingleMove(player.piece(), source, ticket, destination));
 					}
+				}
+				// add secret move
+				if (player.isMrX() && player.has(Ticket.SECRET)){
+					allMoves.add(new SingleMove(player.piece(), source, Ticket.SECRET, destination));
 				}
 
 			}
@@ -361,12 +354,12 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			// 2. there's no places for mrX to travel to
 			for (Player detective: detectives){
 				if (detective.location() == mrX.location()){
-					return getPieces();
+					return getDetectivePieces();
 				}
 			}
 
 			if (remaining.contains(mrX.piece()) && moves.isEmpty()){
-				return getPieces();
+				return getDetectivePieces();
 			}
 
 			// detectives run out of tickets
@@ -384,23 +377,13 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 			// checks mrX has had last turn. and that there are no moves left.
 			if (log.size() == setup.moves.size() && !remaining.contains(mrX.piece()) && moves.isEmpty()) {
-				System.out.println("CHECK IF MRX CAN BE CAUGHT NEXT MOVE");
-				boolean mrXCatchable = false;
-				for (Move d : this.moves) {
-					ImmutableList<Integer> finalDestList = d.accept(new MyGameState.destinationVisitor());
-					for (Integer i : finalDestList) {
-						if (i == mrX.location()) {
-							mrXCatchable = true;
-							break;
-						}
-					} if (mrXCatchable) break;
-				} if (!mrXCatchable) { return ImmutableSet.of(mrX.piece()); }
+				return ImmutableSet.of(mrX.piece());
 			}
 
 			return ImmutableSet.of();
 		}
 
-		private ImmutableSet<Piece> getPieces(){
+		private ImmutableSet<Piece> getDetectivePieces(){
 			Set<Piece> pieces = new HashSet<>();
 			for (Player detective: detectives){
 				pieces.add(detective.piece());
