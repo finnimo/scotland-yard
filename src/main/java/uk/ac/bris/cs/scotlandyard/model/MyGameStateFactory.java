@@ -33,7 +33,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			GameSetup setup,
 			Player mrX,
 			ImmutableList<Player> detectives) {
-		return new MyGameState(setup, ImmutableSet.of(MrX.MRX), ImmutableList.of(), mrX, detectives, new ArrayList<>());
+		return new MyGameState(setup, ImmutableSet.of(MrX.MRX), ImmutableList.of(), mrX, detectives);
 	}
 	private final class MyGameState implements GameState {
 		private GameSetup setup;
@@ -85,7 +85,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 					newPlayer = new Player(player.piece(), player.tickets(), finalDestList.get(1));
 				}
 
-				return new MyGameState(setup, updateRemaining(player), ImmutableList.copyOf(newLog), newPlayer, detectives, winners);
+				return new MyGameState(setup, updateRemaining(player), ImmutableList.copyOf(newLog), newPlayer, detectives);
 
 			} else {
 				newDetectives.remove(player);
@@ -93,7 +93,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			} // normal player skips mrX process and uses ticket
 			newPlayer = new Player(player.piece(), player.tickets(), finalDestList.get(0));
 			newDetectives.add(newPlayer);
-			return new MyGameState(setup, updateRemaining(player), log, mrX.give(move.tickets()), newDetectives, winners);
+			return new MyGameState(setup, updateRemaining(player), log, mrX.give(move.tickets()), newDetectives);
 		}
 
 		List<LogEntry> logDouble(Ticket firstTicket, Ticket secondTicket, ImmutableList<Integer> finalDestList, List<LogEntry> newLog) {
@@ -116,11 +116,22 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			HashSet<Piece> newRemaining = new HashSet<>(remaining);
 			newRemaining.remove(player.piece());
 
+			if (log.size() == setup.moves.size() && player.isDetective() && remaining.size() == 1) { return ImmutableSet.of(); }
 			if (player.isMrX()) {
 				for (Player d : detectives) {
+
 					newRemaining.add(d.piece());
 				}
 			} else {
+				HashSet<Piece> detectivesToRemove = new HashSet<>();
+				for (Piece piece : newRemaining) {
+					Player detective = pieceToPlayer(piece);
+					Set <SingleMove> detectiveMoves = makeSingleMoves(setup, detectives, detective, detective.location());
+					if (detectiveMoves.isEmpty()) {
+						detectivesToRemove.add(detective.piece());
+					}
+				}
+				newRemaining.removeAll(detectivesToRemove);
 				if (newRemaining.isEmpty()) {
 					newRemaining.add(mrX.piece());
 				}
@@ -184,15 +195,14 @@ public final class MyGameStateFactory implements Factory<GameState> {
 				final ImmutableSet<Piece> remaining,
 				final ImmutableList<LogEntry> log,
 				final Player mrX,
-				final List<Player> detectives,
-				ArrayList<Piece> winners) {
+				final List<Player> detectives) {
 
 			this.setup = setup;
 			this.remaining = remaining;
 			this.log = log;
 			this.mrX = mrX;
 			this.detectives = detectives;
-
+			System.out.println(remaining + "remaining");
 			// check that parameters handed over aren't null
 			if (mrX == null || detectives == null || setup == null) {
 				throw new NullPointerException("Build has been passed null arguments.");
@@ -234,10 +244,9 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			// check for winner
 
 			this.moves = ImmutableSet.copyOf(remainingMoves(this.remaining, this.setup));
-
+			System.out.println("moves: "+moves);
 			this.winners = new ArrayList<>(calculateWinner());
 			System.out.println("CURRENT WINNERS: " + this.winners);
-			System.out.println(mrX.piece());
 
 
 			if (!this.winners.isEmpty()) {
@@ -373,13 +382,19 @@ public final class MyGameStateFactory implements Factory<GameState> {
 				if (noDetectiveTicketsLeft) { return ImmutableSet.of(mrX.piece()); }
 			}
 
-			// check detectives still have moves left
-			if (!remaining.contains(mrX.piece()) && moves.isEmpty()) {
-				return ImmutableSet.of(mrX.piece());
-			}
-
-			if (log.size() == setup.moves.size() && remaining.contains(mrX.piece())) {
-				return ImmutableSet.of(mrX.piece());
+			// checks mrX has had last turn. and that there are no moves left.
+			if (log.size() == setup.moves.size() && !remaining.contains(mrX.piece()) && moves.isEmpty()) {
+				System.out.println("CHECK IF MRX CAN BE CAUGHT NEXT MOVE");
+				boolean mrXCatchable = false;
+				for (Move d : this.moves) {
+					ImmutableList<Integer> finalDestList = d.accept(new MyGameState.destinationVisitor());
+					for (Integer i : finalDestList) {
+						if (i == mrX.location()) {
+							mrXCatchable = true;
+							break;
+						}
+					} if (mrXCatchable) break;
+				} if (!mrXCatchable) { return ImmutableSet.of(mrX.piece()); }
 			}
 
 			return ImmutableSet.of();
