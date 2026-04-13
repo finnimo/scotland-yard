@@ -251,46 +251,13 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 			this.winners = new ArrayList<>(calculateWinner());
 			System.out.println("CURRENT WINNERS: " + this.winners);
-			System.out.println(mrX.piece());
-
 
 			if (!this.winners.isEmpty()) {
 				this.moves = ImmutableSet.of();
 			}
 
-			// test for winners
-			/*
-			winners = new ArrayList<>();
-			switch(winnerState()) {
-				case DETECTIVES:
-					for (Player d : this.detectives) {
-						winners.add(d.piece());
-					}
-					break;
-				case MRX:
-					winners.add(this.mrX.piece());
-					break;
-				case NONE:
-					break;
-			}*/
 		}
-		/*enum Winner {DETECTIVES, MRX, NONE}
-		Winner winnerState(Player player, ImmutableSet<Piece> newRemaining) {
-			// check if detective has finished a move on the same station as mrX
-			if (player.location() == mrX.location()) {
-				return Winner.DETECTIVES;
-			}
-			// check mrX cant move
-			if (remaining.contains(mrX.piece()) && moves.isEmpty()) { return Winner.DETECTIVES; }
 
-			if (!remaining.contains(mrX.piece())) {
-				// check detectives cant move
-				if ( moves.isEmpty() ) { return Winner.MRX; }
-				// if no detectives can make moves and log is filled
-				if (remaining.isEmpty() && size(log) == size(setup.moves)) { return Winner.MRX; }
-			}
-			return Winner.NONE;
-		}*/
 
 		Set<Move> remainingMoves(ImmutableSet<Piece> remaining, GameSetup setup) {
 			Set<Move> allMoves = new HashSet<>();
@@ -393,27 +360,53 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 		private ImmutableSet<Piece> calculateWinner(){
 			// is mrX caught?
+			// TODO: if logbook is full and detectives dont have any moves to catch mrX
 
-			for (Player detective: detectives){
+			if (!remaining.contains(mrX.piece()) && moves.isEmpty()) { // if detectives can no longer move
+				System.out.println("detectives has no moves left");
+				return ImmutableSet.of(mrX.piece());
+			}
+
+
+			if (remaining.contains(mrX.piece())) { // detectives have no tickets left after mrX has moved
+				System.out.println("mr x turn, checking for tickets for detectives");
+				boolean noDetectiveTicketsLeft = true;
+				for (Player d : detectives) {
+					if (d.tickets().get(Ticket.BUS) != 0) { noDetectiveTicketsLeft = false; }
+					if (d.tickets().get(Ticket.TAXI) != 0) { noDetectiveTicketsLeft = false; }
+					if (d.tickets().get(Ticket.UNDERGROUND) != 0) { noDetectiveTicketsLeft = false; }
+				}
+				if (noDetectiveTicketsLeft) { return ImmutableSet.of(mrX.piece()); }
+			}
+
+			if (log.size() == setup.moves.size() && !remaining.contains(mrX.piece())) { //if mr x has filled up his log
+				System.out.println("mrX log filled but its detectives turn");
+				boolean mrXCatchable = false;
+				for (Move d : this.moves) {
+					ImmutableList<Integer> finalDestList = d.accept(new MyGameState.destinationVisitor());
+					for (Integer i : finalDestList) {
+						if (i == mrX.location()) {
+							mrXCatchable = true;
+						}
+					}
+				} if (!mrXCatchable) { return ImmutableSet.of(mrX.piece()); }
+			}
+
+			for (Player detective: detectives){ // if a detective is in mrX's location
 				if (detective.location() == mrX.location()){
+					System.out.println("detective caught mrX");
 					return getPieces();
 				}
 			}
 
-			if (remaining.contains(mrX.piece()) && moves.isEmpty()){
+			if (remaining.contains(mrX.piece()) && moves.isEmpty()) { // if mrX can no longer move
+
+				System.out.println("mrX has no moves left");
 				return getPieces();
 			}
 
-			if (!remaining.contains(mrX.piece()) && moves.isEmpty()) {
-				return ImmutableSet.of(mrX.piece());
-
-			}
-
-			if (log.size() == setup.moves.size() && remaining.contains(mrX.piece())) {
-				return ImmutableSet.of(mrX.piece());
-			}
-
 			return ImmutableSet.of();
+
 		}
 
 		private ImmutableSet<Piece> getPieces(){
