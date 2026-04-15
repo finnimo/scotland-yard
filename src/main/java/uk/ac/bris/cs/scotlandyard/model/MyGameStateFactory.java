@@ -85,10 +85,10 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			} else {
 				newDetectives.remove(player);
 				player = player.use(firstTicket);
-			} // normal player skips mrX process and uses ticket
-			newPlayer = new Player(player.piece(), player.tickets(), finalDestList.get(0));
-			newDetectives.add(newPlayer);
-			return new MyGameState(setup, updateRemaining(player), log, mrX.give(move.tickets()), newDetectives);
+				newPlayer = new Player(player.piece(), player.tickets(), finalDestList.get(0));
+				newDetectives.add(newPlayer);
+				return new MyGameState(setup, updateRemaining(player), log, mrX.give(move.tickets()), newDetectives);
+			}
 		}
 
 		List<LogEntry> logDouble(Ticket firstTicket, Ticket secondTicket, ImmutableList<Integer> finalDestList, List<LogEntry> newLog) {
